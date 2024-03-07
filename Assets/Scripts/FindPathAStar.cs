@@ -1,7 +1,11 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Linq.Expressions;
 using TMPro;
+using Unity.Collections;
+using Unity.Jobs;
+using Unity.Mathematics;
 using UnityEngine;
 
 public class FindPathAStar : MonoBehaviour
@@ -25,8 +29,8 @@ public class FindPathAStar : MonoBehaviour
     bool _hasStarted;
     bool done = false;
 
-    List<PathMarker> open = new List<PathMarker>();
-    List<PathMarker> closed = new List<PathMarker>();
+    List<PathMarker> _open = new List<PathMarker>();
+    Dictionary<NavLocation, PathMarker> _closed = new Dictionary<NavLocation, PathMarker>();
 
     Action<NavLocation[]> _donePathSearchCB;
 
@@ -36,27 +40,26 @@ public class FindPathAStar : MonoBehaviour
         foreach (GameObject m in markers) GameObject.Destroy(m);
     }
 
-    public void BeginSearch(int x1, int z1, int x2, int z2, Action<NavLocation[]> cb)
+    public void BeginSearch(int x1, int z1, int x2, int z2, Action<NavLocation[]> OnSucceedCB)
     {
         done = false;
         RemoveAllMarkers();
 
         Vector3 startLocation = new Vector3(x1, 0.0f, z1);
         _startNode = new PathMarker(new NavLocation(x1, z1),
-            0.0f, 0.0f, 0.0f, GameObject.Instantiate(_startPrefab, startLocation, Quaternion.identity), null);
+            0.0f, 0.0f, 0.0f, null, GameObject.Instantiate(_startPrefab, startLocation, Quaternion.identity));
 
-        Vector3 endLocation = new Vector3(x2, 0.0f, z2);
         _goalNode = new PathMarker(new NavLocation(x2, z2),
-            0.0f, 0.0f, 0.0f, GameObject.Instantiate(_endPrefab, endLocation, Quaternion.identity), null);
+            0.0f, 0.0f, 0.0f, null, GameObject.Instantiate(_startPrefab, startLocation, Quaternion.identity));
 
-        open.Clear();
-        closed.Clear();
+        _open.Clear();
+        _closed.Clear();
 
-        open.Add(_startNode);
+        _open.Add(_startNode);
         _lastPos = _startNode;
 
         _hasStarted = true;
-        _donePathSearchCB = cb;
+        _donePathSearchCB = OnSucceedCB;
     }
 
     void Update()
@@ -67,18 +70,22 @@ public class FindPathAStar : MonoBehaviour
 
     NavLocation[] GetPath()
     {
-        RemoveAllMarkers();
         PathMarker begin = _lastPos;
         Stack<NavLocation> navPath = new Stack<NavLocation>();
         navPath.Push(begin.location);
         while (!_startNode.Equals(begin) && begin != null)
         {
-            GameObject.Instantiate(_pathPrefab, new Vector3(begin.location.x, 0, begin.location.z), Quaternion.identity);
+            #if VISUAL
+            begin.marker.GetComponent<Renderer>().material.color = Color.cyan;
+            #endif
+
             begin = begin.parent;
             navPath.Push(begin.location);
         }
 
+        #if VISUAL
         GameObject.Instantiate(_pathPrefab, new Vector3(_startNode.location.x, 0, _startNode.location.z), Quaternion.identity);
+        #endif
         return navPath.ToArray();
     }
 
@@ -93,18 +100,32 @@ public class FindPathAStar : MonoBehaviour
             return;
         }
 
-        foreach (NavLocation dir in _navGrid.GetDirection())
+        // check to see if this node is valid and added or updated to the list
+        CalculateMarkers(thisNode);
+
+        // sort the list by F and if tied on F then sort by H value
+        _open = _open.OrderBy(p => p.F).ThenBy(n => n.H).ToList<PathMarker>();
+
+        PathMarker pm = _open.ElementAt(0);
+        _closed.Add(pm.location, pm);
+
+        _open.RemoveAt(0);
+        #if VISUAL
+        pm.marker.GetComponent<Renderer>().material = _closedMaterial;
+        #endif
+        _lastPos = pm;
+    }
+
+    private void CalculateMarkers(PathMarker thisNode)
+    {
+        List<NavLocation> list = _navGrid.GetDirection();
+        for (int i = 0; i < list.Count; i++)
         {
+            NavLocation dir = list[i];
             NavLocation neighbour = dir + thisNode.location;
 
-            // edge of the board
-            if (neighbour.x < 1 || neighbour.x >= _navGrid.Width || neighbour.z < 1 || neighbour.z >= _navGrid.Depth)
-            {
-                continue;
-            }
-
-            // Blocked
-            if (_navGrid.GetMapByte(neighbour.x, neighbour.z) == 1)
+            // has wall or out of bound
+            if (!_navGrid.IsPassable(neighbour.x, neighbour.z))
             {
                 continue;
             }
@@ -119,31 +140,28 @@ public class FindPathAStar : MonoBehaviour
             float h = Vector2.Distance(neighbour.ToVector(), _goalNode.location.ToVector());
             float f = g + h;
 
-            GameObject pathBlock = GameObject.Instantiate(_pathPrefab, new Vector3(neighbour.x, 0.0f, neighbour.z), Quaternion.identity);
-
+            // visuals
+            GameObject pathBlock = null;
+            #if VISUAL
+            pathBlock = GameObject.Instantiate(_pathPrefab, new Vector3(neighbour.x, 0.0f, neighbour.z), Quaternion.identity);
             TextMeshPro[] values = pathBlock.GetComponentsInChildren<TextMeshPro>();
-            values[0].text = "G:" + g.ToString("0.0") + "\nH:" + h.ToString("0.0") + "\nF:" + f.ToString("0.0");
-
+            values[0].text = "G:" + g.ToString("0.00") + "\nH:" + h.ToString("0.00") + "\nF:" + f.ToString("0.00");
+            #endif
             if (!UpdateMarker(neighbour, g, h, f, thisNode))
             {
-
-                open.Add(new PathMarker(neighbour, g, h, f, pathBlock, thisNode));
+                #if VISUAL
+                pathBlock.GetComponent<Renderer>().material = _openMaterial;
+                #endif
+                _open.Add(new PathMarker(neighbour, g, h, f, thisNode, pathBlock));
             }
         }
-        open = open.OrderBy(p => p.F).ThenBy(n=>n.H).ToList<PathMarker>();
-
-        PathMarker pm = (PathMarker)open.ElementAt(0);
-        closed.Add(pm);
-
-        open.RemoveAt(0);
-        pm.marker.GetComponent<Renderer>().material = _closedMaterial;
-        _lastPos = pm;
     }
 
     bool UpdateMarker(NavLocation pos, float g, float h, float f, PathMarker prt)
     {
-        foreach (PathMarker p in open)
+        for (int i = 0; i < _open.Count; i++)
         {
+            PathMarker p = _open[i];
             if (p.location.Equals(pos))
             {
                 p.G = g;
@@ -158,10 +176,6 @@ public class FindPathAStar : MonoBehaviour
 
     bool IsClosed(NavLocation marker)
     {
-        foreach (PathMarker p in closed)
-        {
-            if (p.location.Equals(marker)) return true;
-        }
-        return false;
+        return _closed.ContainsKey(marker);
     }
 }

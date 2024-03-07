@@ -20,8 +20,8 @@ public class NavGrid : MonoBehaviour
     byte[,] _map;
     readonly List<NavLocation> _directions = new List<NavLocation>()
     {
-        new NavLocation(1,0), new NavLocation(0,1), new NavLocation(-1,0), new NavLocation(0,-1),
-        new NavLocation(1,1), new NavLocation(1,-1), new NavLocation(-1,-1), new NavLocation(-1,1)
+        new NavLocation(1,1), new NavLocation(1,-1), new NavLocation(-1,-1), new NavLocation(-1,1),
+        new NavLocation(1,0), new NavLocation(0,1), new NavLocation(-1,0), new NavLocation(0,-1)      
     };
 
     public int Width { get { return _width; } }
@@ -41,9 +41,11 @@ public class NavGrid : MonoBehaviour
         return _directions;
     }
 
-    public byte GetMapByte(int x, int z)
+    public bool IsPassable(int x, int z)
     {
-        return _map[x, z];
+        if (x < 1 || x >= Width || z < 1 || z >= Depth) return false;
+
+        return _map[x, z] == 0;
     }
 
     void Start()
@@ -87,7 +89,6 @@ public class NavGrid : MonoBehaviour
                     wall.transform.localScale = new Vector3(_scale, _scale, _scale);
                     wall.transform.position = pos;
                     wall.transform.SetParent(this.transform);
-                    wall.GetComponent<Collider>().enabled = false;
                 }
             }
     

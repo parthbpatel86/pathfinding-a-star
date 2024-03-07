@@ -443,7 +443,7 @@ GameObject:
   - component: {fileID: 7403980232891824296}
   m_Layer: 0
   m_Name: FloorPlane
-  m_TagString: Untagged
+  m_TagString: Floor
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -625,6 +625,11 @@ PrefabInstance:
       propertyPath: _grid
       value: 
       objectReference: {fileID: 366829866}
+    - target: {fileID: 1495133619455150144, guid: 0a1a3f5adeb0342b49d44583cfd5d730,
+        type: 3}
+      propertyPath: _speed
+      value: 6
+      objectReference: {fileID: 0}
     - target: {fileID: 3271883727968293047, guid: 0a1a3f5adeb0342b49d44583cfd5d730,
         type: 3}
       propertyPath: m_Name

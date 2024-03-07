@@ -20,10 +20,13 @@ public class Player : MonoBehaviour
             var ray = Camera.main.ScreenPointToRay(Input.mousePosition);
             if (Physics.Raycast(ray, out var hitInfo))
             {
-                _grid.GetPath(transform.position, hitInfo.point, OnFinishSearchPath);
-                _currentPathIndex = 0;
-                _serachingPath = true;
-            }            
+                if (hitInfo.transform.tag == "Floor")
+                {
+                    _grid.GetPath(transform.position, hitInfo.point, OnFinishSearchPath);
+                    _currentPathIndex = 0;
+                    _serachingPath = true;
+                }
+            }
         }
 
         // Traverse
@@ -48,6 +51,6 @@ public class Player : MonoBehaviour
     void OnFinishSearchPath(NavLocation[] navLocation)
     {
         _currentPath = navLocation;
-        _serachingPath = false;
+        _serachingPath = false;        
     }
 }

@@ -4,10 +4,11 @@ public class PathMarker
 {
     public NavLocation location;
     public float G, H, F;
-    public GameObject marker;
     public PathMarker parent;
+    // visual
+    public GameObject marker = null;
 
-    public PathMarker(NavLocation l, float g, float h, float f, GameObject m, PathMarker p)
+    public PathMarker(NavLocation l, float g, float h, float f, PathMarker p, GameObject m = null)
     {
         location = l;
         G = g;
