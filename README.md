@@ -1,7 +1,6 @@
 # pathfinding-a-star
 Generate path and move to that location using A* algorithm
-
-Clonned from pocket worlds interview take home test
+Its uses A* Algorithm with 2 steps of execution: 1st prediction and second traversal 
 
 Steps to run the test
 1. open unity project
